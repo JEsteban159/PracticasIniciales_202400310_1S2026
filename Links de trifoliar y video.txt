@@ -1,5 +1,8 @@
 Trifoliar:
 https://gemini.google.com/share/c5d1a51efc5a
 
+Prompt:
+Hola, quiero que me hagas un trifoliar educativo y fácil de entender para cualquier persona basado en el contenido de este power point (Aquí le mostré las diapositivas que aparecen al inicio del video), yo por trifoliar entiendo 1 hoja doblada en 3 secciones que tiene datos en ambas caras de la hoja, puedes hacerla de ese modo, obviamente algunas cosas puedes quitarlas para que quepa, pero necesito que también agregues un pequeño resumen sobre como hacer mantenimiento a una laptop.
+
 Video:
 https://youtu.be/Hulwk-ByN-Y
