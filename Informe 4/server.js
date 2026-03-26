@@ -31,6 +31,7 @@ function verificarToken(req, res, next) {
   }
 }
 
+// registro------------------------------------------------------------------------------------------------------------------------
 app.post('/api/auth/registro', async (req, res) => {
   const { registro_academico, nombre_usuario, apellido_usuario, correo_usuario, contrasena_usuario } = req.body;
 
@@ -58,6 +59,7 @@ app.post('/api/auth/registro', async (req, res) => {
   }
 });
 
+// inicio de sesion----------------------------------------------------------------------------------------------------------------
 app.post('/api/auth/login', async (req, res) => {
   const { registro_academico, contrasena_usuario } = req.body;
 
@@ -76,6 +78,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     const valido = await bcrypt.compare(contrasena_usuario, usuario.contrasena_usuario);
     if (!valido) return res.status(401).json({ error: 'Credenciales incorrectas' });
+
 
     const token = jwt.sign(
       { id: usuario.id_usuario, nombre: usuario.nombre_usuario, registro: usuario.registro_academico },
@@ -99,6 +102,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Obtener todas las publicaciones-------------------------------------------------------------------------------------------------
 app.get('/api/publicaciones', verificarToken, async (req, res) => {
   const { tipo, referencia_id } = req.query;
 
@@ -131,6 +135,7 @@ app.get('/api/publicaciones', verificarToken, async (req, res) => {
   }
 });
 
+// Crear publicacion---------------------------------------------------------------------------------------------------------------
 app.post('/api/publicaciones', verificarToken, async (req, res) => {
   const { tipo_publicacion, id_referencia_publicacion, mensaje_publicacion } = req.body;
 
@@ -169,6 +174,7 @@ app.post('/api/publicaciones', verificarToken, async (req, res) => {
   }
 });
 
+// obterner comentarios de una publicacion-----------------------------------------------------------------------------------------
 app.get('/api/publicaciones/:id/comentarios', verificarToken, async (req, res) => {
   try {
     const [rows] = await db.execute(
@@ -186,6 +192,7 @@ app.get('/api/publicaciones/:id/comentarios', verificarToken, async (req, res) =
   }
 });
 
+// agregar comentario -------------------------------------------------------------------------------------------------------------
 app.post('/api/publicaciones/:id/comentarios', verificarToken, async (req, res) => {
   const { mensaje_comentario } = req.body;
 
@@ -213,6 +220,7 @@ app.post('/api/publicaciones/:id/comentarios', verificarToken, async (req, res) 
   }
 });
 
+// obtener todos los cursos -------------------------------------------------------------------------------------------------------
 app.get('/api/cursos', verificarToken, async (req, res) => {
   try {
     const [rows] = await db.execute('SELECT * FROM curso ORDER BY nombre_curso');
@@ -223,6 +231,7 @@ app.get('/api/cursos', verificarToken, async (req, res) => {
   }
 });
 
+// Obtener todos los catedráticos--------------------------------------------------------------------------------------------------
 app.get('/api/catedraticos', verificarToken, async (req, res) => {
   try {
     const [rows] = await db.execute('SELECT * FROM catedratico ORDER BY nombre_catedratico');
@@ -233,6 +242,7 @@ app.get('/api/catedraticos', verificarToken, async (req, res) => {
   }
 });
 
+// Buscar usuario por registro académico-------------------------------------------------------------------------------------------
 app.get('/api/usuarios/buscar/:registro', verificarToken, async (req, res) => {
   const { registro } = req.params;
 
@@ -255,6 +265,7 @@ app.get('/api/usuarios/buscar/:registro', verificarToken, async (req, res) => {
   }
 });
 
+// Ver perfil de usuarioVer perfil de usuario--------------------------------------------------------------------------------------
 app.get('/api/usuarios/:id/perfil', verificarToken, async (req, res) => {
   const { id } = req.params;
 
@@ -282,6 +293,7 @@ app.get('/api/usuarios/:id/perfil', verificarToken, async (req, res) => {
   }
 });
 
+// Actualizar perfil propio--------------------------------------------------------------------------------------------------------
 app.put('/api/usuarios/:id/perfil', verificarToken, async (req, res) => {
   const { id } = req.params;
   const { nombre_usuario, apellido_usuario, correo_usuario } = req.body;
@@ -312,6 +324,7 @@ app.put('/api/usuarios/:id/perfil', verificarToken, async (req, res) => {
   }
 });
 
+//  Obtener cursos aprobados de un usuario-----------------------------------------------------------------------------------------
 app.get('/api/usuarios/:id/cursos-aprobados', verificarToken, async (req, res) => {
   const { id } = req.params;
 
@@ -337,6 +350,7 @@ app.get('/api/usuarios/:id/cursos-aprobados', verificarToken, async (req, res) =
   }
 });
 
+// Agregar curso aprobado ---------------------------------------------------------------------------------------------------------
 app.post('/api/usuarios/:id/cursos-aprobados', verificarToken, async (req, res) => {
   const { id } = req.params;
   const { curso_id } = req.body;
@@ -371,8 +385,30 @@ app.post('/api/usuarios/:id/cursos-aprobados', verificarToken, async (req, res) 
   }
 });
 
+// CAMBIAR CONTRASEÑA -------------------------------------------------------------------------------------------------------------
+app.put('/api/usuarios/:id/cambiar-contrasena', verificarToken, async (req, res) => {
+  const { id } = req.params;
+  const { contrasena_usuario } = req.body;
+
+  if (!contrasena_usuario) {
+    return res.status(400).json({ error: 'Nueva contraseña requerida' });
+  }
+
+  try {
+    const hash = await bcrypt.hash(contrasena_usuario, 10);
+    await db.execute(
+      'UPDATE usuario SET contrasena_usuario = ? WHERE id_usuario = ?',
+      [hash, id]
+    );
+    res.json({ mensaje: 'Contraseña actualizada exitosamente' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al actualizar contraseña' });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`✅ Backend corriendo en http://localhost:${PORT}`);
+  console.log(`   Backend corriendo en http://localhost:${PORT}`);
   console.log('   ===================================');
   console.log('   ENDPOINTS DISPONIBLES:');
   console.log('   AUTH:');
