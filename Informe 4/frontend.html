@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Califica USAC - Feed</title>
+  <title>Califica USAC - Perfiles</title>
 
   <!-- React + Babel + Axios via CDN -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -26,6 +26,7 @@
       --muted:    #6b7080;
       --success:  #34d399;
       --danger:   #f87171;
+      --warning:  #fbbf24;
       --radius:   12px;
     }
 
@@ -119,6 +120,7 @@
     }
     .btn-sm { padding: 7px 14px; font-size: 13px; }
     .btn-danger { background: rgba(248,113,113,.15); color: var(--danger); border: 1px solid rgba(248,113,113,.3); }
+    .btn-warning { background: rgba(251,191,36,.15); color: var(--warning); border: 1px solid rgba(251,191,36,.3); }
 
     /* Navbar */
     nav {
@@ -128,9 +130,25 @@
       padding: 20px 0;
       border-bottom: 1px solid var(--border);
       margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
     }
     .nav-logo { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
     .nav-logo span { color: var(--accent); }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      transition: color .2s;
+      cursor: pointer;
+    }
+    .nav-links a:hover { color: var(--accent); }
     .nav-user {
       display: flex;
       align-items: center;
@@ -144,6 +162,30 @@
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-size: 14px; font-weight: 700; color: #fff;
+    }
+
+    /* Search bar */
+    .search-bar {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+    }
+    .search-bar h3 {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: var(--muted);
+    }
+    .search-input-group {
+      display: flex;
+      gap: 12px;
+    }
+    .search-input-group input {
+      flex: 1;
+    }
+    .search-input-group button {
+      width: auto;
     }
 
     /* Filtros */
@@ -257,6 +299,44 @@
     .comment strong { color: var(--accent); font-size: 13px; }
     .comment p { margin-top: 4px; line-height: 1.5; }
 
+    /* Perfil */
+    .perfil-container {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .perfil-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .perfil-header h2 {
+      font-size: 20px;
+    }
+    .perfil-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .perfil-field {
+      background: var(--bg);
+      padding: 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    .perfil-field label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      display: block;
+    }
+    .perfil-field p {
+      font-size: 16px;
+      font-weight: 500;
+    }
+
     /* Alerts */
     .alert {
       padding: 12px 16px;
@@ -292,7 +372,7 @@ api.interceptors.request.use(cfg => {
 });
 
 // ------------------------------------------------------------------------------------------------------------------------------
-//                                                           LOGIN FORM
+//                                                             LOGIN FORM
 // ------------------------------------------------------------------------------------------------------------------------------
 function LoginForm({ onLogin, onSwitch }) {
   const [form, setForm] = useState({ registro_academico: '', contrasena_usuario: '' });
@@ -346,7 +426,7 @@ function LoginForm({ onLogin, onSwitch }) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-//                                                        REGISTRO FORM
+//                                                           REGISTRO FORM
 // ------------------------------------------------------------------------------------------------------------------------------
 function RegistroForm({ onSwitch }) {
   const [form, setForm] = useState({ 
@@ -416,7 +496,7 @@ function RegistroForm({ onSwitch }) {
 
 // ------------------------------------------------------------------------------------------------------------------------------
 //                                                            AUTH SCREEN
-//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
 function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState('login');
 
@@ -430,141 +510,104 @@ function AuthScreen({ onLogin }) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-//                                                              MAIN APP
+//                                                      PERFIL DE USUARIO
 // ------------------------------------------------------------------------------------------------------------------------------
-function MainApp({ usuario, onLogout }) {
-  const [publicaciones, setPublicaciones] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [cursos, setCursos] = useState([]);
-  const [catedraticos, setCatedraticos] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [filtroTipo, setFiltroTipo] = useState('');
+function PerfilScreen({ usuario, esPropio, onUpdate }) {
+  const [editando, setEditando] = useState(false);
+  const [form, setForm] = useState({
+  nombre_usuario: usuario.nombre,
+  apellido_usuario: usuario.apellido,
+  correo_usuario: usuario.correo
+});
+  const [msg, setMsg] = useState({ type: '', text: '' });
+  const [loading, setLoading] = useState(false);
 
-  // Cargar catálogos
-  useEffect(() => {
-    const cargarCatalogos = async () => {
-      try {
-        const [cursosRes, catedraticosRes] = await Promise.all([
-          api.get('/cursos'),
-          api.get('/catedraticos')
-        ]);
-        setCursos(cursosRes.data);
-        setCatedraticos(catedraticosRes.data);
-      } catch (err) {
-        console.error('Error cargando catálogos:', err);
-      }
-    };
-    cargarCatalogos();
-  }, []);
+  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
-  const cargarPublicaciones = async () => {
-    setLoading(true);
+  const guardarCambios = async () => {
+    setMsg({}); setLoading(true);
     try {
-      const params = filtroTipo ? { tipo: filtroTipo } : {};
-      const { data } = await api.get('/publicaciones', { params });
-      setPublicaciones(data);
+      await api.put(`/usuarios/${usuario.id_usuario}/perfil`, form);
+      const usuarioActualizado = { 
+        ...usuario, 
+        nombre: form.nombre_usuario,
+        apellido: form.apellido_usuario,
+        correo: form.correo_usuario
+      };
+      localStorage.setItem('usuario', JSON.stringify(usuarioActualizado));
+      setMsg({ type: 'success', text: 'Perfil actualizado exitosamente' });
+      setEditando(false);
+      if (onUpdate) onUpdate();
     } catch (err) {
-      console.error(err);
-      setPublicaciones([]);
-    } finally {
-      setLoading(false);
-    }
+      setMsg({ type: 'error', text: err.response?.data?.error || 'Error al actualizar' });
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    cargarPublicaciones();
-  }, [filtroTipo]);
-
-  const initials = n => n ? n.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() : '?';
-  const fmtDate = d => new Date(d).toLocaleDateString('es-GT', { day:'2-digit', month:'short', year:'numeric' });
-
   return (
-    <div className="app">
-      <nav>
-        <div className="nav-logo">🎓 <span>Califica</span>USAC</div>
-        <div className="nav-user">
-          <div className="avatar">{initials(usuario.nombre_usuario)}</div>
-          <span>{usuario.nombre_usuario} {usuario.apellido_usuario}</span>
-          <button className="btn btn-ghost btn-sm btn-danger" onClick={onLogout}>Salir</button>
-        </div>
-      </nav>
-
-      {/* Panel de filtros */}
-      <div className="filters-panel">
-        <h3>🔎 Filtrar publicaciones</h3>
-        <div className="filters-grid">
-          <div className="filter-group">
-            <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}>
-              <option value="">Todas las publicaciones</option>
-              <option value="curso">Solo cursos</option>
-              <option value="catedratico">Solo catedráticos</option>
-            </select>
-          </div>
-          <button className="btn btn-sm btn-limpiar" onClick={() => setFiltroTipo('')}>
-            Limpiar filtros
+    <div className="perfil-container">
+      <div className="perfil-header">
+        <h2>Perfil de Usuario</h2>
+        {esPropio && !editando && (
+          <button className="btn btn-warning btn-sm" onClick={() => setEditando(true)}>
+            ✏️ Editar perfil
           </button>
-        </div>
+        )}
       </div>
 
-      <div className="feed-header">
-        <div>
-          <h1>Feed de Publicaciones</h1>
-          <p style={{color:'var(--muted)', fontSize:14}}>{publicaciones.length} publicaciones</p>
+      {msg.text && <div className={`alert alert-${msg.type}`}>{msg.text}</div>}
+
+      {editando ? (
+        <>
+          <div className="field">
+            <label>Nombres</label>
+            <input name="nombre_usuario" value={form.nombre_usuario} onChange={handleChange} />
+          </div>
+          <div className="field">
+            <label>Apellidos</label>
+            <input name="apellido_usuario" value={form.apellido_usuario} onChange={handleChange} />
+          </div>
+          <div className="field">
+            <label>Correo Electrónico</label>
+            <input name="correo_usuario" type="email" value={form.correo_usuario} onChange={handleChange} />
+          </div>
+          <div className="field">
+            <label>Registro Académico (No editable)</label>
+            <input value={usuario.registro_academico} disabled />
+          </div>
+          <div style={{display: 'flex', gap: '12px', marginTop: '16px'}}>
+            <button className="btn btn-ghost" onClick={() => setEditando(false)}>Cancelar</button>
+            <button className="btn btn-primary" onClick={guardarCambios} disabled={loading}>
+              {loading ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="perfil-info">
+          <div className="perfil-field">
+            <label>Registro Académico</label>
+            <p>{usuario.registro_academico}</p>
+          </div>
+          <div className="perfil-field">
+            <label>Nombres</label>
+            <p>{usuario.nombre}</p>
+          </div>
+          <div className="perfil-field">
+            <label>Apellidos</label>
+            <p>{usuario.apellido}</p>
+          </div>
+          <div className="perfil-field">
+            <label>Correo Electrónico</label>
+            <p>{usuario.correo}</p>
+          </div>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)} style={{width:'auto'}}>
-          + Nueva publicación
-        </button>
-      </div>
-
-      {loading
-        ? <div className="loader">Cargando publicaciones…</div>
-        : publicaciones.length === 0
-          ? <div className="empty">📭 No hay publicaciones aún. ¡Sé el primero!</div>
-          : publicaciones.map(p => (
-            <div className="card" key={p.id_publicacion}>
-              <div className="card-meta">
-                <span className={`badge badge-${p.tipo_publicacion === 'curso' ? 'curso' : 'catedratico'}`}>
-                  {p.tipo_publicacion === 'curso' ? '📚 Curso' : '👤 Catedrático'}
-                </span>
-                <span className="card-author">
-                  por <strong>{p.nombre_usuario} {p.apellido_usuario}</strong> · {p.registro_academico}
-                </span>
-              </div>
-              <p className="card-msg">{p.mensaje_publicacion}</p>
-              <div className="card-footer">
-                <span>💬 {p.total_comentarios} comentarios</span>
-                <div style={{display:'flex', gap:8}}>
-                  <span>{fmtDate(p.fecha_publicacion)}</span>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setSelected(p)}>
-                    Ver comentarios
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-      }
-
-      {showModal &&
-        <NuevaPublicacionModal
-          onClose={() => setShowModal(false)}
-          onCreated={() => { setShowModal(false); cargarPublicaciones(); }}
-          cursos={cursos}
-          catedraticos={catedraticos}
-        />
-      }
-
-      {selected &&
-        <ComentariosModal
-          publicacion={selected}
-          onClose={() => setSelected(null)}
-        />
-      }
+      )}
     </div>
   );
 }
 
-// MODAL: NUEVA PUBLICACIÓN -----------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+//                                                     MODAL: NUEVA PUBLICACIÓN
+// ------------------------------------------------------------------------------------------------------------------------------
 function NuevaPublicacionModal({ onClose, onCreated, cursos, catedraticos }) {
   const [form, setForm] = useState({ tipo_publicacion: 'curso', id_referencia_publicacion: '', mensaje_publicacion: '' });
   const [loading, setLoading] = useState(false);
@@ -628,7 +671,9 @@ function NuevaPublicacionModal({ onClose, onCreated, cursos, catedraticos }) {
   );
 }
 
-// MODAL: COMENTARIOS -----------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------------------------------------
+//                                                          MODAL: COMENTARIOS
+// ------------------------------------------------------------------------------------------------------------------------------
 function ComentariosModal({ publicacion, onClose }) {
   const [comentarios, setComentarios] = useState([]);
   const [nuevo, setNuevo] = useState('');
@@ -689,7 +734,209 @@ function ComentariosModal({ publicacion, onClose }) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-//                                                        COMPONENTE PRINCIPAL
+//                                                            MAIN APP
+// ------------------------------------------------------------------------------------------------------------------------------
+function MainApp({ usuario, onLogout }) {
+  const [publicaciones, setPublicaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cursos, setCursos] = useState([]);
+  const [catedraticos, setCatedraticos] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const [vista, setVista] = useState('inicio');
+  const [usuarioBuscado, setUsuarioBuscado] = useState(null);
+  const [busquedaError, setBusquedaError] = useState('');
+
+  // Cargar catálogos
+  useEffect(() => {
+    const cargarCatalogos = async () => {
+      try {
+        const [cursosRes, catedraticosRes] = await Promise.all([
+          api.get('/cursos'),
+          api.get('/catedraticos')
+        ]);
+        setCursos(cursosRes.data);
+        setCatedraticos(catedraticosRes.data);
+      } catch (err) {
+        console.error('Error cargando catálogos:', err);
+      }
+    };
+    cargarCatalogos();
+  }, []);
+
+  const cargarPublicaciones = async () => {
+    setLoading(true);
+    try {
+      const params = filtroTipo ? { tipo: filtroTipo } : {};
+      const { data } = await api.get('/publicaciones', { params });
+      setPublicaciones(data);
+    } catch (err) {
+      console.error(err);
+      setPublicaciones([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarPublicaciones();
+  }, [filtroTipo]);
+
+  const buscarUsuario = async (registro) => {
+    if (!registro) return;
+    setBusquedaError('');
+    try {
+      const { data } = await api.get(`/usuarios/buscar/${registro}`);
+      // Transformar los campos para que coincidan con lo que espera PerfilScreen
+      const usuarioTransformado = {
+        id_usuario: data.id_usuario,
+        registro_academico: data.registro_academico,
+        nombre: data.nombre_usuario,
+        apellido: data.apellido_usuario,
+        correo: data.correo_usuario
+      };
+      setUsuarioBuscado(usuarioTransformado);
+      setVista('perfil');
+    } catch {
+      setBusquedaError('Usuario no encontrado');
+      setUsuarioBuscado(null);
+    }
+  };
+
+  const initials = (nombre, apellido) => {
+    if (!nombre && !apellido) return '?';
+    const primera = nombre ? nombre.charAt(0).toUpperCase() : '';
+    const segunda = apellido ? apellido.charAt(0).toUpperCase() : '';
+    return (primera + segunda) || '?';
+  };
+
+  const fmtDate = d => new Date(d).toLocaleDateString('es-GT', { day:'2-digit', month:'short', year:'numeric' });
+
+  return (
+    <div className="app">
+      <nav>
+        <div className="nav-logo">🎓 <span>Califica</span>USAC</div>
+        <div className="nav-links">
+          <a onClick={() => { setVista('inicio'); setUsuarioBuscado(null); }}>Inicio</a>
+          <a onClick={() => { setVista('perfil'); setUsuarioBuscado(usuario); }}>Mi Perfil</a>
+        </div>
+        <div className="nav-user">
+          <div className="avatar">{initials(usuario.nombre, usuario.apellido)}</div>
+          <span>{usuario.nombre} {usuario.apellido}</span>
+          <button className="btn btn-ghost btn-sm btn-danger" onClick={onLogout}>Salir</button>
+        </div>
+      </nav>
+
+      {/* Barra de búsqueda de usuarios */}
+      <div className="search-bar">
+        <h3>🔍 Buscar usuario por Registro Académico</h3>
+        <div className="search-input-group">
+          <input 
+            id="searchRegistro"
+            placeholder="Ej: 202400000"
+            onKeyDown={e => e.key === 'Enter' && buscarUsuario(e.target.value)}
+          />
+          <button className="btn btn-primary" onClick={() => buscarUsuario(document.getElementById('searchRegistro').value)}>
+            Buscar
+          </button>
+        </div>
+        {busquedaError && <div className="alert alert-error" style={{marginTop: 12}}>{busquedaError}</div>}
+      </div>
+
+      {vista === 'inicio' && (
+        <>
+          {/* Panel de filtros */}
+          <div className="filters-panel">
+            <h3>🔎 Filtrar publicaciones</h3>
+            <div className="filters-grid">
+              <div className="filter-group">
+                <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}>
+                  <option value="">Todas las publicaciones</option>
+                  <option value="curso">Solo cursos</option>
+                  <option value="catedratico">Solo catedráticos</option>
+                </select>
+              </div>
+              <button className="btn btn-sm btn-limpiar" onClick={() => setFiltroTipo('')}>
+                Limpiar filtros
+              </button>
+            </div>
+          </div>
+
+          <div className="feed-header">
+            <div>
+              <h1>Feed de Publicaciones</h1>
+              <p style={{color:'var(--muted)', fontSize:14}}>{publicaciones.length} publicaciones</p>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)} style={{width:'auto'}}>
+              + Nueva publicación
+            </button>
+          </div>
+
+          {loading
+            ? <div className="loader">Cargando publicaciones…</div>
+            : publicaciones.length === 0
+              ? <div className="empty">📭 No hay publicaciones aún. ¡Sé el primero!</div>
+              : publicaciones.map(p => (
+                <div className="card" key={p.id_publicacion}>
+                  <div className="card-meta">
+                    <span className={`badge badge-${p.tipo_publicacion === 'curso' ? 'curso' : 'catedratico'}`}>
+                      {p.tipo_publicacion === 'curso' ? '📚 Curso' : '👤 Catedrático'}
+                    </span>
+                    <span className="card-author">
+                      por <strong>{p.nombre_usuario} {p.apellido_usuario}</strong> · {p.registro_academico}
+                    </span>
+                  </div>
+                  <p className="card-msg">{p.mensaje_publicacion}</p>
+                  <div className="card-footer">
+                    <span>💬 {p.total_comentarios} comentarios</span>
+                    <div style={{display:'flex', gap:8}}>
+                      <span>{fmtDate(p.fecha_publicacion)}</span>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setSelected(p)}>
+                        Ver comentarios
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+          }
+
+          {showModal &&
+            <NuevaPublicacionModal
+              onClose={() => setShowModal(false)}
+              onCreated={() => { setShowModal(false); cargarPublicaciones(); }}
+              cursos={cursos}
+              catedraticos={catedraticos}
+            />
+          }
+
+          {selected &&
+            <ComentariosModal
+              publicacion={selected}
+              onClose={() => setSelected(null)}
+            />
+          }
+        </>
+      )}
+
+      {vista === 'perfil' && (
+        <PerfilScreen 
+          usuario={usuarioBuscado || usuario} 
+          esPropio={!usuarioBuscado || usuarioBuscado.id_usuario === usuario.id_usuario}
+          onUpdate={() => {
+            if (!usuarioBuscado) {
+              const usuarioActualizado = JSON.parse(localStorage.getItem('usuario'));
+              setUsuarioBuscado(usuarioActualizado);
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
+//                                                          COMPONENTE PRINCIPAL
 // ------------------------------------------------------------------------------------------------------------------------------
 function App() {
   const [token,   setToken]   = useState(localStorage.getItem('token'));
