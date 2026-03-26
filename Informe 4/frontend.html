@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Califica USAC - Inicio</title>
+  <title>Califica USAC - Feed</title>
 
   <!-- React + Babel + Axios via CDN -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -90,6 +90,7 @@
       outline: none;
       border-color: var(--accent);
     }
+    textarea { resize: vertical; min-height: 90px; }
 
     /* Buttons */
     .btn {
@@ -145,12 +146,41 @@
       font-size: 14px; font-weight: 700; color: #fff;
     }
 
+    /* Filtros */
+    .filters-panel {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+    }
+    .filters-panel h3 {
+      font-size: 14px;
+      margin-bottom: 16px;
+      color: var(--muted);
+    }
+    .filters-grid {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .filter-group select {
+      width: auto;
+    }
+    .btn-limpiar {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
     /* Feed */
     .feed-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
     .feed-header h1 { font-size: 20px; margin-bottom: 0; }
 
@@ -163,6 +193,7 @@
       margin-bottom: 16px;
       transition: border-color .2s;
     }
+    .card:hover { border-color: var(--accent); }
 
     .card-meta {
       display: flex; align-items: center; gap: 10px;
@@ -188,6 +219,43 @@
       flex-wrap: wrap;
       gap: 8px;
     }
+
+    /* Modales */
+    .overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; padding: 20px;
+    }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      width: 100%;
+      max-width: 550px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 24px;
+    }
+    .modal h2 { font-size: 20px; }
+    .close-btn {
+      background: none; border: none; color: var(--muted);
+      font-size: 22px; cursor: pointer; line-height: 1;
+    }
+    .close-btn:hover { color: var(--text); }
+
+    /* Comments */
+    .comment {
+      border-top: 1px solid var(--border);
+      padding: 12px 0;
+      font-size: 14px;
+    }
+    .comment strong { color: var(--accent); font-size: 13px; }
+    .comment p { margin-top: 4px; line-height: 1.5; }
 
     /* Alerts */
     .alert {
@@ -278,7 +346,7 @@ function LoginForm({ onLogin, onSwitch }) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-//                                                               REGISTRO FORM
+//                                                        REGISTRO FORM
 // ------------------------------------------------------------------------------------------------------------------------------
 function RegistroForm({ onSwitch }) {
   const [form, setForm] = useState({ 
@@ -347,8 +415,8 @@ function RegistroForm({ onSwitch }) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-//                                                              AUTH SCREEN
-// ------------------------------------------------------------------------------------------------------------------------------
+//                                                            AUTH SCREEN
+//------------------------------------------------------------------------------------------------------------------------------
 function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState('login');
 
@@ -362,10 +430,54 @@ function AuthScreen({ onLogin }) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-//                                                                MAIN APP
+//                                                              MAIN APP
 // ------------------------------------------------------------------------------------------------------------------------------
 function MainApp({ usuario, onLogout }) {
+  const [publicaciones, setPublicaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [cursos, setCursos] = useState([]);
+  const [catedraticos, setCatedraticos] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [filtroTipo, setFiltroTipo] = useState('');
+
+  // Cargar catálogos
+  useEffect(() => {
+    const cargarCatalogos = async () => {
+      try {
+        const [cursosRes, catedraticosRes] = await Promise.all([
+          api.get('/cursos'),
+          api.get('/catedraticos')
+        ]);
+        setCursos(cursosRes.data);
+        setCatedraticos(catedraticosRes.data);
+      } catch (err) {
+        console.error('Error cargando catálogos:', err);
+      }
+    };
+    cargarCatalogos();
+  }, []);
+
+  const cargarPublicaciones = async () => {
+    setLoading(true);
+    try {
+      const params = filtroTipo ? { tipo: filtroTipo } : {};
+      const { data } = await api.get('/publicaciones', { params });
+      setPublicaciones(data);
+    } catch (err) {
+      console.error(err);
+      setPublicaciones([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    cargarPublicaciones();
+  }, [filtroTipo]);
+
   const initials = n => n ? n.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() : '?';
+  const fmtDate = d => new Date(d).toLocaleDateString('es-GT', { day:'2-digit', month:'short', year:'numeric' });
 
   return (
     <div className="app">
@@ -378,19 +490,206 @@ function MainApp({ usuario, onLogout }) {
         </div>
       </nav>
 
-      <div className="feed-header">
-        <h1>Bienvenido, {usuario.nombre_usuario}</h1>
+      {/* Panel de filtros */}
+      <div className="filters-panel">
+        <h3>🔎 Filtrar publicaciones</h3>
+        <div className="filters-grid">
+          <div className="filter-group">
+            <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}>
+              <option value="">Todas las publicaciones</option>
+              <option value="curso">Solo cursos</option>
+              <option value="catedratico">Solo catedráticos</option>
+            </select>
+          </div>
+          <button className="btn btn-sm btn-limpiar" onClick={() => setFiltroTipo('')}>
+            Limpiar filtros
+          </button>
+        </div>
       </div>
 
-      <div className="empty" style={{marginTop: 40}}>
-        🚧 Próximamente: Publicaciones, comentarios y más funciones
+      <div className="feed-header">
+        <div>
+          <h1>Feed de Publicaciones</h1>
+          <p style={{color:'var(--muted)', fontSize:14}}>{publicaciones.length} publicaciones</p>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)} style={{width:'auto'}}>
+          + Nueva publicación
+        </button>
+      </div>
+
+      {loading
+        ? <div className="loader">Cargando publicaciones…</div>
+        : publicaciones.length === 0
+          ? <div className="empty">📭 No hay publicaciones aún. ¡Sé el primero!</div>
+          : publicaciones.map(p => (
+            <div className="card" key={p.id_publicacion}>
+              <div className="card-meta">
+                <span className={`badge badge-${p.tipo_publicacion === 'curso' ? 'curso' : 'catedratico'}`}>
+                  {p.tipo_publicacion === 'curso' ? '📚 Curso' : '👤 Catedrático'}
+                </span>
+                <span className="card-author">
+                  por <strong>{p.nombre_usuario} {p.apellido_usuario}</strong> · {p.registro_academico}
+                </span>
+              </div>
+              <p className="card-msg">{p.mensaje_publicacion}</p>
+              <div className="card-footer">
+                <span>💬 {p.total_comentarios} comentarios</span>
+                <div style={{display:'flex', gap:8}}>
+                  <span>{fmtDate(p.fecha_publicacion)}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setSelected(p)}>
+                    Ver comentarios
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+      }
+
+      {showModal &&
+        <NuevaPublicacionModal
+          onClose={() => setShowModal(false)}
+          onCreated={() => { setShowModal(false); cargarPublicaciones(); }}
+          cursos={cursos}
+          catedraticos={catedraticos}
+        />
+      }
+
+      {selected &&
+        <ComentariosModal
+          publicacion={selected}
+          onClose={() => setSelected(null)}
+        />
+      }
+    </div>
+  );
+}
+
+// MODAL: NUEVA PUBLICACIÓN -----------------------------------------------------------------------------------------------------
+function NuevaPublicacionModal({ onClose, onCreated, cursos, catedraticos }) {
+  const [form, setForm] = useState({ tipo_publicacion: 'curso', id_referencia_publicacion: '', mensaje_publicacion: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const opciones = form.tipo_publicacion === 'curso' ? cursos : catedraticos;
+  const handle = e => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const submit = async () => {
+    if (!form.id_referencia_publicacion || !form.mensaje_publicacion) {
+      setError('Por favor completa todos los campos');
+      return;
+    }
+    setError(''); setLoading(true);
+    try {
+      await api.post('/publicaciones', form);
+      onCreated();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al crear publicación');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h2>Nueva Publicación</h2>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+        {error && <div className="alert alert-error">{error}</div>}
+        <div className="field">
+          <label>Publicar sobre</label>
+          <select name="tipo_publicacion" value={form.tipo_publicacion} onChange={handle}>
+            <option value="curso">Curso</option>
+            <option value="catedratico">Catedrático</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>{form.tipo_publicacion === 'curso' ? 'Selecciona el curso' : 'Selecciona el catedrático'}</label>
+          <select name="id_referencia_publicacion" value={form.id_referencia_publicacion} onChange={handle}>
+            <option value="">-- Selecciona --</option>
+            {opciones.map(o => (
+              <option key={o.id_curso || o.id_catedratico} value={o.id_curso || o.id_catedratico}>
+                {o.nombre_curso || `${o.nombre_catedratico} ${o.apellido_catedratico}`}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Tu reseña / mensaje</label>
+          <textarea name="mensaje_publicacion" placeholder="Escribe tu opinión aquí…" value={form.mensaje_publicacion} onChange={handle} />
+        </div>
+        <div style={{display:'flex', gap:10}}>
+          <button className="btn btn-ghost" onClick={onClose} style={{flex:1}}>Cancelar</button>
+          <button className="btn btn-primary" onClick={submit} disabled={loading} style={{flex:2}}>
+            {loading ? 'Publicando…' : 'Publicar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// MODAL: COMENTARIOS -----------------------------------------------------------------------------------------------------------
+function ComentariosModal({ publicacion, onClose }) {
+  const [comentarios, setComentarios] = useState([]);
+  const [nuevo, setNuevo] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  const cargar = async () => {
+    try {
+      const { data } = await api.get(`/publicaciones/${publicacion.id_publicacion}/comentarios`);
+      setComentarios(data);
+    } catch { setComentarios([]); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const enviar = async () => {
+    if (!nuevo.trim()) return;
+    try {
+      await api.post(`/publicaciones/${publicacion.id_publicacion}/comentarios`, { mensaje_comentario: nuevo });
+      setNuevo('');
+      cargar();
+    } catch {}
+  };
+
+  const fmtDate = d => new Date(d).toLocaleDateString('es-GT', { day:'2-digit', month:'short' });
+
+  return (
+    <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h2>Comentarios</h2>
+          <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+        <div className="card" style={{marginBottom:20, padding:'16px'}}>
+          <p style={{fontSize:15, lineHeight:1.6}}>{publicacion.mensaje_publicacion}</p>
+          <p style={{fontSize:12, color:'var(--muted)', marginTop:8}}>
+            — {publicacion.nombre_usuario} {publicacion.apellido_usuario}
+          </p>
+        </div>
+        {loading
+          ? <div className="loader">Cargando comentarios…</div>
+          : comentarios.length === 0
+            ? <div className="empty" style={{padding:'20px 0'}}>Sin comentarios aún. ¡Sé el primero!</div>
+            : comentarios.map(c => (
+              <div className="comment" key={c.id_comentario}>
+                <strong>{c.nombre_usuario} {c.apellido_usuario} · {fmtDate(c.fecha_comentario)}</strong>
+                <p>{c.mensaje_comentario}</p>
+              </div>
+            ))
+        }
+        <div style={{marginTop:20, display:'flex', gap:8}}>
+          <input placeholder="Agrega un comentario…" value={nuevo} onChange={e => setNuevo(e.target.value)} onKeyDown={e => e.key === 'Enter' && enviar()} />
+          <button className="btn btn-primary btn-sm" onClick={enviar} style={{width:'auto'}}>Enviar</button>
+        </div>
       </div>
     </div>
   );
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-//                                                          COMPONENTE PRINCIPAL
+//                                                        COMPONENTE PRINCIPAL
 // ------------------------------------------------------------------------------------------------------------------------------
 function App() {
   const [token,   setToken]   = useState(localStorage.getItem('token'));
