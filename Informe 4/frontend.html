@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Califica USAC - Perfiles</title>
+  <title>Califica USAC - Completo</title>
 
   <!-- React + Babel + Axios via CDN -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -188,7 +188,7 @@
       width: auto;
     }
 
-    /* Filtros */
+    /* Filtros avanzados */
     .filters-panel {
       background: var(--surface);
       border-radius: var(--radius);
@@ -201,13 +201,27 @@
       margin-bottom: 16px;
       color: var(--muted);
     }
-    .filters-grid {
+    .filters-grid-advanced {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .filter-group label {
+      font-size: 12px;
+      margin-bottom: 0;
+    }
+    .filter-group input, .filter-group select {
+      padding: 8px 12px;
+    }
+    .filter-actions {
       display: flex;
       gap: 12px;
-      flex-wrap: wrap;
-    }
-    .filter-group select {
-      width: auto;
+      margin-top: 16px;
     }
     .btn-limpiar {
       background: var(--bg);
@@ -337,6 +351,54 @@
       font-weight: 500;
     }
 
+    /* Cursos Aprobados */
+    .cursos-container {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .total-creditos {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      padding: 20px;
+      border-radius: var(--radius);
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .total-creditos h3 {
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .total-creditos p {
+      font-size: 32px;
+      font-weight: bold;
+    }
+    .cursos-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .cursos-table th, .cursos-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .cursos-table th {
+      color: var(--muted);
+      font-weight: 500;
+      font-size: 12px;
+    }
+    .add-curso-form {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      align-items: flex-end;
+    }
+    .add-curso-form select {
+      flex: 1;
+    }
+    .add-curso-form button {
+      width: auto;
+    }
+
     /* Alerts */
     .alert {
       padding: 12px 16px;
@@ -374,7 +436,7 @@ api.interceptors.request.use(cfg => {
 // ------------------------------------------------------------------------------------------------------------------------------
 //                                                             LOGIN FORM
 // ------------------------------------------------------------------------------------------------------------------------------
-function LoginForm({ onLogin, onSwitch }) {
+function LoginForm({ onLogin, onSwitch, onRecuperar }) {
   const [form, setForm] = useState({ registro_academico: '', contrasena_usuario: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -418,6 +480,9 @@ function LoginForm({ onLogin, onSwitch }) {
         {loading ? 'Ingresando…' : 'Ingresar →'}
       </button>
 
+      <div className="switch-link">
+        <button onClick={onRecuperar}>¿Olvidaste tu contraseña?</button>
+      </div>
       <div className="switch-link">
         ¿No tienes cuenta? <button onClick={onSwitch}>Regístrate</button>
       </div>
@@ -495,30 +560,165 @@ function RegistroForm({ onSwitch }) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
+//                                                         RECUPERAR CONTRASEÑA
+// ------------------------------------------------------------------------------------------------------------------------------
+function RecuperarContrasena({ onBack }) {
+  const [form, setForm] = useState({ registro_academico: '', correo_usuario: '' });
+  const [nuevaContrasena, setNuevaContrasena] = useState('');
+  const [paso, setPaso] = useState(1);
+  const [msg, setMsg] = useState({ type: '', text: '' });
+  const [loading, setLoading] = useState(false);
+
+  const handle = e => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const verificar = async () => {
+    if (!form.registro_academico || !form.correo_usuario) {
+      setMsg({ type: 'error', text: 'Por favor completa todos los campos' });
+      return;
+    }
+    
+    setMsg({}); setLoading(true);
+    try {
+      // Usar endpoint público SIN token
+      const { data } = await api.get(`/usuarios/buscar-publico/${form.registro_academico}`);
+      
+      console.log('Usuario encontrado:', data);
+      
+      // Verificar que el correo coincida
+      if (data.correo_usuario && data.correo_usuario.toLowerCase() === form.correo_usuario.toLowerCase()) {
+        setPaso(2);
+        setMsg({ type: 'success', text: 'Usuario verificado. Ingresa tu nueva contraseña.' });
+      } else {
+        setMsg({ type: 'error', text: 'El correo no coincide con el registro proporcionado' });
+      }
+    } catch (err) {
+      console.error('Error al buscar usuario:', err);
+      if (err.response?.status === 404) {
+        setMsg({ type: 'error', text: 'No se encontró un usuario con ese registro académico' });
+      } else {
+        setMsg({ type: 'error', text: err.response?.data?.error || 'Error al verificar usuario' });
+      }
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  const cambiarContrasena = async () => {
+    if (!nuevaContrasena || nuevaContrasena.length < 6) {
+      setMsg({ type: 'error', text: 'La contraseña debe tener al menos 6 caracteres' });
+      return;
+    }
+    
+    setMsg({}); setLoading(true);
+    try {
+      // Usar endpoint público SIN token para cambiar contraseña
+      await api.put('/usuarios/cambiar-contrasena-publico', { 
+        registro_academico: form.registro_academico,
+        contrasena_usuario: nuevaContrasena 
+      });
+      
+      setMsg({ type: 'success', text: 'Contraseña actualizada correctamente. Ya puedes iniciar sesión.' });
+      setTimeout(() => onBack(), 2500);
+    } catch (err) {
+      console.error('Error al cambiar contraseña:', err);
+      setMsg({ type: 'error', text: err.response?.data?.error || 'Error al cambiar la contraseña' });
+    } finally { 
+      setLoading(false); 
+    }
+  };
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-card">
+        <div className="auth-logo">
+          <div className="auth-logo-icon">🔐</div>
+          <div><h2>Recuperar Contraseña</h2></div>
+        </div>
+        
+        {msg.text && <div className={`alert alert-${msg.type}`}>{msg.text}</div>}
+        
+        {paso === 1 ? (
+          <>
+            <div className="field">
+              <label>Registro Académico</label>
+              <input 
+                name="registro_academico" 
+                value={form.registro_academico} 
+                onChange={handle} 
+                placeholder="Ej: 202400273"
+                autoComplete="off"
+              />
+            </div>
+            <div className="field">
+              <label>Correo Electrónico</label>
+              <input 
+                name="correo_usuario" 
+                type="email" 
+                value={form.correo_usuario} 
+                onChange={handle} 
+                placeholder="tu@correo.com"
+                autoComplete="off"
+              />
+            </div>
+            <button className="btn btn-primary" onClick={verificar} disabled={loading}>
+              {loading ? 'Verificando…' : 'Verificar'}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="field">
+              <label>Nueva Contraseña</label>
+              <input 
+                type="password" 
+                value={nuevaContrasena} 
+                onChange={e => setNuevaContrasena(e.target.value)} 
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+            <button className="btn btn-primary" onClick={cambiarContrasena} disabled={loading}>
+              {loading ? 'Actualizando…' : 'Actualizar Contraseña'}
+            </button>
+          </>
+        )}
+        
+        <div className="switch-link">
+          <button onClick={onBack}>← Volver al inicio de sesión</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
 //                                                            AUTH SCREEN
 // ------------------------------------------------------------------------------------------------------------------------------
 function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState('login');
+  const [showRecuperar, setShowRecuperar] = useState(false);
+
+  if (showRecuperar) {
+    return <RecuperarContrasena onBack={() => setShowRecuperar(false)} />;
+  }
 
   return (
     <div className="auth-wrap">
       {mode === 'login'
-        ? <LoginForm onLogin={onLogin} onSwitch={() => setMode('registro')} />
+        ? <LoginForm onLogin={onLogin} onSwitch={() => setMode('registro')} onRecuperar={() => setShowRecuperar(true)} />
         : <RegistroForm onSwitch={() => setMode('login')} />}
     </div>
   );
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------
-//                                                      PERFIL DE USUARIO
+//                                                           PERFIL DE USUARIO
 // ------------------------------------------------------------------------------------------------------------------------------
 function PerfilScreen({ usuario, esPropio, onUpdate }) {
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState({
-  nombre_usuario: usuario.nombre,
-  apellido_usuario: usuario.apellido,
-  correo_usuario: usuario.correo
-});
+    nombre_usuario: usuario.nombre || '',
+    apellido_usuario: usuario.apellido || '',
+    correo_usuario: usuario.correo || ''
+  });
   const [msg, setMsg] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
 
@@ -527,7 +727,7 @@ function PerfilScreen({ usuario, esPropio, onUpdate }) {
   const guardarCambios = async () => {
     setMsg({}); setLoading(true);
     try {
-      await api.put(`/usuarios/${usuario.id_usuario}/perfil`, form);
+      await api.put(`/usuarios/${usuario.id}/perfil`, form);
       const usuarioActualizado = { 
         ...usuario, 
         nombre: form.nombre_usuario,
@@ -539,6 +739,7 @@ function PerfilScreen({ usuario, esPropio, onUpdate }) {
       setEditando(false);
       if (onUpdate) onUpdate();
     } catch (err) {
+      console.error('Error:', err.response?.data);
       setMsg({ type: 'error', text: err.response?.data?.error || 'Error al actualizar' });
     } finally { setLoading(false); }
   };
@@ -572,7 +773,7 @@ function PerfilScreen({ usuario, esPropio, onUpdate }) {
           </div>
           <div className="field">
             <label>Registro Académico (No editable)</label>
-            <input value={usuario.registro_academico} disabled />
+            <input value={usuario.registro_academico || ''} disabled />
           </div>
           <div style={{display: 'flex', gap: '12px', marginTop: '16px'}}>
             <button className="btn btn-ghost" onClick={() => setEditando(false)}>Cancelar</button>
@@ -585,22 +786,146 @@ function PerfilScreen({ usuario, esPropio, onUpdate }) {
         <div className="perfil-info">
           <div className="perfil-field">
             <label>Registro Académico</label>
-            <p>{usuario.registro_academico}</p>
+            <p>{usuario.registro_academico || 'No disponible'}</p>
           </div>
           <div className="perfil-field">
             <label>Nombres</label>
-            <p>{usuario.nombre}</p>
+            <p>{usuario.nombre || 'No disponible'}</p>
           </div>
           <div className="perfil-field">
             <label>Apellidos</label>
-            <p>{usuario.apellido}</p>
+            <p>{usuario.apellido || 'No disponible'}</p>
           </div>
           <div className="perfil-field">
             <label>Correo Electrónico</label>
-            <p>{usuario.correo}</p>
+            <p>{usuario.correo || 'No disponible'}</p>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
+//                                                      CURSOS APROBADOS
+// ------------------------------------------------------------------------------------------------------------------------------
+function CursosAprobadosScreen({ usuario, esPropio }) {
+  const [cursosAprobados, setCursosAprobados] = useState([]);
+  const [todosCursos, setTodosCursos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [agregando, setAgregando] = useState(false);
+  const [cursoSeleccionado, setCursoSeleccionado] = useState('');
+  const [msg, setMsg] = useState({ type: '', text: '' });
+
+  const cargarCursosAprobados = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get(`/usuarios/${usuario.id}/cursos-aprobados`);
+      setCursosAprobados(data.cursos || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cargarTodosCursos = async () => {
+    try {
+      const { data } = await api.get('/cursos');
+      setTodosCursos(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    cargarCursosAprobados();
+    cargarTodosCursos();
+  }, []);
+
+  const totalCreditos = cursosAprobados.reduce((sum, c) => sum + (c.creditos_curso || 0), 0);
+  const cursosNoAprobados = todosCursos.filter(
+    curso => !cursosAprobados.some(ca => ca.curso_id_curso === curso.id_curso)
+  );
+
+  const agregarCurso = async () => {
+    if (!cursoSeleccionado) {
+      setMsg({ type: 'error', text: 'Selecciona un curso' });
+      return;
+    }
+    setAgregando(true);
+    setMsg({});
+    try {
+      await api.post(`/usuarios/${usuario.id}/cursos-aprobados`, { curso_id: cursoSeleccionado });
+      setMsg({ type: 'success', text: 'Curso agregado exitosamente' });
+      setCursoSeleccionado('');
+      cargarCursosAprobados();
+    } catch (err) {
+      console.error('Error detallado:', err.response?.data);
+      setMsg({ type: 'error', text: err.response?.data?.error || 'Error al agregar curso' });
+    } finally {
+      setAgregando(false);
+    }
+  };
+
+  const fmtDate = d => new Date(d).toLocaleDateString('es-GT');
+
+  return (
+    <div className="cursos-container">
+      <h2>Cursos Aprobados</h2>
+      <p style={{ color: 'var(--muted)', marginBottom: '24px' }}>
+        {esPropio ? 'Administra los cursos que has aprobado' : `Cursos aprobados por ${usuario.nombre} ${usuario.apellido}`}
+      </p>
+
+      <div className="total-creditos">
+        <h3>Total de Créditos</h3>
+        <p>{totalCreditos}</p>
+      </div>
+
+      {loading ? (
+        <div className="loader">Cargando cursos aprobados…</div>
+      ) : cursosAprobados.length === 0 ? (
+        <div className="empty">📚 No hay cursos aprobados registrados.</div>
+      ) : (
+        <table className="cursos-table">
+          <thead>
+            <tr>
+              <th>Curso</th>
+              <th>Créditos</th>
+              <th>Área</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cursosAprobados.map(curso => (
+              <tr key={curso.id_registro}>
+                <td>{curso.nombre_curso}</td>
+                <td>{curso.creditos_curso}</td>
+                <td>{curso.area_curso}</td>
+                <td>{fmtDate(curso.fecha_aprobacion)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {esPropio && cursosNoAprobados.length > 0 && (
+        <div className="add-curso-form">
+          <select value={cursoSeleccionado} onChange={e => setCursoSeleccionado(e.target.value)}>
+            <option value="">-- Selecciona un curso --</option>
+            {cursosNoAprobados.map(curso => (
+              <option key={curso.id_curso} value={curso.id_curso}>
+                {curso.nombre_curso} ({curso.creditos_curso} créditos)
+              </option>
+            ))}
+          </select>
+          <button className="btn btn-primary" onClick={agregarCurso} disabled={agregando}>
+            {agregando ? 'Agregando…' : '+ Agregar curso aprobado'}
+          </button>
+        </div>
+      )}
+
+      {msg.text && <div className={`alert alert-${msg.type}`} style={{ marginTop: '16px' }}>{msg.text}</div>}
     </div>
   );
 }
@@ -743,10 +1068,17 @@ function MainApp({ usuario, onLogout }) {
   const [catedraticos, setCatedraticos] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [filtroTipo, setFiltroTipo] = useState('');
   const [vista, setVista] = useState('inicio');
   const [usuarioBuscado, setUsuarioBuscado] = useState(null);
   const [busquedaError, setBusquedaError] = useState('');
+  
+  // Filtros avanzados
+  const [filtros, setFiltros] = useState({
+    tipo: '',
+    referencia_id: '',
+    nombre_curso: '',
+    nombre_catedratico: ''
+  });
 
   // Cargar catálogos
   useEffect(() => {
@@ -768,7 +1100,10 @@ function MainApp({ usuario, onLogout }) {
   const cargarPublicaciones = async () => {
     setLoading(true);
     try {
-      const params = filtroTipo ? { tipo: filtroTipo } : {};
+      const params = {};
+      if (filtros.tipo) params.tipo = filtros.tipo;
+      if (filtros.referencia_id) params.referencia_id = filtros.referencia_id;
+      
       const { data } = await api.get('/publicaciones', { params });
       setPublicaciones(data);
     } catch (err) {
@@ -781,16 +1116,15 @@ function MainApp({ usuario, onLogout }) {
 
   useEffect(() => {
     cargarPublicaciones();
-  }, [filtroTipo]);
+  }, [filtros.tipo, filtros.referencia_id]);
 
   const buscarUsuario = async (registro) => {
     if (!registro) return;
     setBusquedaError('');
     try {
       const { data } = await api.get(`/usuarios/buscar/${registro}`);
-      // Transformar los campos para que coincidan con lo que espera PerfilScreen
       const usuarioTransformado = {
-        id_usuario: data.id_usuario,
+        id: data.id_usuario,
         registro_academico: data.registro_academico,
         nombre: data.nombre_usuario,
         apellido: data.apellido_usuario,
@@ -802,6 +1136,49 @@ function MainApp({ usuario, onLogout }) {
       setBusquedaError('Usuario no encontrado');
       setUsuarioBuscado(null);
     }
+  };
+
+  // Funciones de filtros avanzados
+  const handleFiltroCurso = () => {
+    if (filtros.nombre_curso) {
+      const curso = cursos.find(c => 
+        c.nombre_curso.toLowerCase().includes(filtros.nombre_curso.toLowerCase())
+      );
+      if (curso) {
+        setFiltros({
+          tipo: 'curso',
+          referencia_id: curso.id_curso,
+          nombre_curso: '',
+          nombre_catedratico: ''
+        });
+      }
+    }
+  };
+
+  const handleFiltroCatedratico = () => {
+    if (filtros.nombre_catedratico) {
+      const catedratico = catedraticos.find(c => 
+        `${c.nombre_catedratico} ${c.apellido_catedratico}`.toLowerCase()
+          .includes(filtros.nombre_catedratico.toLowerCase())
+      );
+      if (catedratico) {
+        setFiltros({
+          tipo: 'catedratico',
+          referencia_id: catedratico.id_catedratico,
+          nombre_curso: '',
+          nombre_catedratico: ''
+        });
+      }
+    }
+  };
+
+  const limpiarFiltros = () => {
+    setFiltros({
+      tipo: '',
+      referencia_id: '',
+      nombre_curso: '',
+      nombre_catedratico: ''
+    });
   };
 
   const initials = (nombre, apellido) => {
@@ -820,6 +1197,7 @@ function MainApp({ usuario, onLogout }) {
         <div className="nav-links">
           <a onClick={() => { setVista('inicio'); setUsuarioBuscado(null); }}>Inicio</a>
           <a onClick={() => { setVista('perfil'); setUsuarioBuscado(usuario); }}>Mi Perfil</a>
+          <a onClick={() => setVista('cursos')}>Mis Cursos</a>
         </div>
         <div className="nav-user">
           <div className="avatar">{initials(usuario.nombre, usuario.apellido)}</div>
@@ -828,37 +1206,93 @@ function MainApp({ usuario, onLogout }) {
         </div>
       </nav>
 
-      {/* Barra de búsqueda de usuarios */}
-      <div className="search-bar">
-        <h3>🔍 Buscar usuario por Registro Académico</h3>
-        <div className="search-input-group">
-          <input 
-            id="searchRegistro"
-            placeholder="Ej: 202400000"
-            onKeyDown={e => e.key === 'Enter' && buscarUsuario(e.target.value)}
-          />
-          <button className="btn btn-primary" onClick={() => buscarUsuario(document.getElementById('searchRegistro').value)}>
-            Buscar
-          </button>
-        </div>
-        {busquedaError && <div className="alert alert-error" style={{marginTop: 12}}>{busquedaError}</div>}
-      </div>
-
       {vista === 'inicio' && (
         <>
-          {/* Panel de filtros */}
+          {/* Barra de búsqueda de usuarios*/}
+          <div className="search-bar">
+            <h3>🔍 Buscar usuario por Registro Académico</h3>
+            <div className="search-input-group">
+              <input 
+                id="searchRegistro"
+                placeholder="Ej: 202400000"
+                onKeyDown={e => e.key === 'Enter' && buscarUsuario(e.target.value)}
+              />
+              <button className="btn btn-primary" onClick={() => buscarUsuario(document.getElementById('searchRegistro').value)}>
+                Buscar
+              </button>
+            </div>
+            {busquedaError && <div className="alert alert-error" style={{marginTop: 12}}>{busquedaError}</div>}
+          </div>
+
+          {/* Panel de filtros avanzados */}
           <div className="filters-panel">
             <h3>🔎 Filtrar publicaciones</h3>
-            <div className="filters-grid">
+            <div className="filters-grid-advanced">
               <div className="filter-group">
-                <select value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}>
-                  <option value="">Todas las publicaciones</option>
-                  <option value="curso">Solo cursos</option>
-                  <option value="catedratico">Solo catedráticos</option>
+                <label>Filtrar por Curso</label>
+                <select 
+                  value={filtros.tipo === 'curso' ? filtros.referencia_id : ''} 
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setFiltros({ ...filtros, tipo: 'curso', referencia_id: e.target.value, nombre_curso: '', nombre_catedratico: '' });
+                    } else {
+                      setFiltros({ ...filtros, tipo: '', referencia_id: '' });
+                    }
+                  }}
+                >
+                  <option value="">Todos los cursos</option>
+                  {cursos.map(c => (
+                    <option key={c.id_curso} value={c.id_curso}>{c.nombre_curso}</option>
+                  ))}
                 </select>
               </div>
-              <button className="btn btn-sm btn-limpiar" onClick={() => setFiltroTipo('')}>
-                Limpiar filtros
+
+              <div className="filter-group">
+                <label>Filtrar por Catedrático</label>
+                <select 
+                  value={filtros.tipo === 'catedratico' ? filtros.referencia_id : ''} 
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setFiltros({ ...filtros, tipo: 'catedratico', referencia_id: e.target.value, nombre_curso: '', nombre_catedratico: '' });
+                    } else {
+                      setFiltros({ ...filtros, tipo: '', referencia_id: '' });
+                    }
+                  }}
+                >
+                  <option value="">Todos los catedráticos</option>
+                  {catedraticos.map(c => (
+                    <option key={c.id_catedratico} value={c.id_catedratico}>
+                      {c.nombre_catedratico} {c.apellido_catedratico}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="filter-group">
+                <label>Buscar por nombre de curso</label>
+                <input 
+                  type="text"
+                  value={filtros.nombre_curso}
+                  onChange={e => setFiltros({ ...filtros, nombre_curso: e.target.value })}
+                  placeholder="Ej: Bases de Datos"
+                />
+                <button className="btn btn-sm btn-ghost" onClick={handleFiltroCurso}>Buscar</button>
+              </div>
+
+              <div className="filter-group">
+                <label>Buscar por nombre de catedrático</label>
+                <input 
+                  type="text"
+                  value={filtros.nombre_catedratico}
+                  onChange={e => setFiltros({ ...filtros, nombre_catedratico: e.target.value })}
+                  placeholder="Ej: Adolfo Jimenez"
+                />
+                <button className="btn btn-sm btn-ghost" onClick={handleFiltroCatedratico}>Buscar</button>
+              </div>
+            </div>
+            <div className="filter-actions">
+              <button className="btn btn-sm btn-limpiar" onClick={limpiarFiltros}>
+                Limpiar todos los filtros
               </button>
             </div>
           </div>
@@ -922,7 +1356,7 @@ function MainApp({ usuario, onLogout }) {
       {vista === 'perfil' && (
         <PerfilScreen 
           usuario={usuarioBuscado || usuario} 
-          esPropio={!usuarioBuscado || usuarioBuscado.id_usuario === usuario.id_usuario}
+          esPropio={!usuarioBuscado || usuarioBuscado.id === usuario.id}
           onUpdate={() => {
             if (!usuarioBuscado) {
               const usuarioActualizado = JSON.parse(localStorage.getItem('usuario'));
@@ -930,6 +1364,10 @@ function MainApp({ usuario, onLogout }) {
             }
           }}
         />
+      )}
+
+      {vista === 'cursos' && (
+        <CursosAprobadosScreen usuario={usuario} esPropio={true} />
       )}
     </div>
   );
@@ -939,14 +1377,21 @@ function MainApp({ usuario, onLogout }) {
 //                                                          COMPONENTE PRINCIPAL
 // ------------------------------------------------------------------------------------------------------------------------------
 function App() {
-  const [token,   setToken]   = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(localStorage.getItem('token'));
   const [usuario, setUsuario] = useState(JSON.parse(localStorage.getItem('usuario') || 'null'));
 
   const login = (tok, usr) => {
+    const usuarioTransformado = {
+      id: usr.id_usuario || usr.id,
+      nombre: usr.nombre,
+      apellido: usr.apellido,
+      registro_academico: usr.registro,
+      correo: usr.correo
+    };
     localStorage.setItem('token', tok);
-    localStorage.setItem('usuario', JSON.stringify(usr));
+    localStorage.setItem('usuario', JSON.stringify(usuarioTransformado));
     setToken(tok);
-    setUsuario(usr);
+    setUsuario(usuarioTransformado);
   };
 
   const logout = () => {

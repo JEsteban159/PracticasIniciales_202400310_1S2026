@@ -265,7 +265,7 @@ app.get('/api/usuarios/buscar/:registro', verificarToken, async (req, res) => {
   }
 });
 
-// Ver perfil de usuarioVer perfil de usuario--------------------------------------------------------------------------------------
+// Ver perfil de usuario-----------------------------------------------------------------------------------------------------------
 app.get('/api/usuarios/:id/perfil', verificarToken, async (req, res) => {
   const { id } = req.params;
 
@@ -400,6 +400,66 @@ app.put('/api/usuarios/:id/cambiar-contrasena', verificarToken, async (req, res)
       'UPDATE usuario SET contrasena_usuario = ? WHERE id_usuario = ?',
       [hash, id]
     );
+    res.json({ mensaje: 'Contraseña actualizada exitosamente' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al actualizar contraseña' });
+  }
+});
+
+// Recuperación sin token ---------------------------------------------------------------------------------------------------------
+app.get('/api/usuarios/buscar-publico/:registro', async (req, res) => {
+  const { registro } = req.params;
+
+  try {
+    const [rows] = await db.execute(
+      `SELECT id_usuario, registro_academico, nombre_usuario, apellido_usuario, correo_usuario 
+       FROM usuario 
+       WHERE registro_academico = ?`,
+      [registro]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al buscar usuario' });
+  }
+});
+
+// Cambiar contraseña sin token ---------------------------------------------------------------------------------------------------
+app.put('/api/usuarios/cambiar-contrasena-publico', async (req, res) => {
+  const { registro_academico, contrasena_usuario } = req.body;
+
+  if (!registro_academico || !contrasena_usuario) {
+    return res.status(400).json({ error: 'Registro y nueva contraseña requeridos' });
+  }
+
+  if (contrasena_usuario.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
+  try {
+    // Buscar el usuario por registro
+    const [rows] = await db.execute(
+      'SELECT id_usuario FROM usuario WHERE registro_academico = ?',
+      [registro_academico]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const hash = await bcrypt.hash(contrasena_usuario, 10);
+    
+    await db.execute(
+      'UPDATE usuario SET contrasena_usuario = ? WHERE registro_academico = ?',
+      [hash, registro_academico]
+    );
+
     res.json({ mensaje: 'Contraseña actualizada exitosamente' });
   } catch (err) {
     console.error(err);
